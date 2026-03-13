@@ -1,21 +1,31 @@
-# Build
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
-WORKDIR /src
-
-COPY ["catalog-api.csproj", "."]
-RUN dotnet restore "catalog-api.csproj"
-
-COPY . .
-RUN dotnet build "catalog-api.csproj" -c Release -o /app/build
-
-# Publish
-FROM build AS publish
-RUN dotnet publish "catalog-api.csproj" -c Release -o /app/publish /p:UseAppHost=false
-
-# Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+# Use the official .NET 10 SDK image as the build environment
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS base
 WORKDIR /app
-ENV ASPNETCORE_URLS=http://+:8080
-EXPOSE 8080
+
+# Build stage
+FROM base AS build
+COPY src/ ./src/
+WORKDIR /app/src/Postech.Catalog.Api
+RUN dotnet restore Postech.Catalog.Api.csproj
+RUN dotnet build Postech.Catalog.Api.csproj -c Release -o /app/build
+
+# Test stage
+FROM build AS test
+WORKDIR /app/src/Postech.Catalog.Api.Tests
+RUN dotnet test Postech.Catalog.Api.Tests.csproj --no-build --verbosity normal
+
+# Publish stage
+FROM build AS publish
+WORKDIR /app/src/Postech.Catalog.Api
+RUN dotnet publish Postech.Catalog.Api.csproj -c Release -o /app/publish --no-restore
+
+# Final stage: runtime-only image
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "catalog-api.dll"]
+
+# Expose port (change if needed)
+EXPOSE 80
+
+# Start the application
+ENTRYPOINT ["dotnet", "Postech.Catalog.Api.dll"]
