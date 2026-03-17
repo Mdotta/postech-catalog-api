@@ -6,13 +6,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using Postech.Catalog.Api.Application.Events;
 using Postech.Catalog.Api.Application.Services;
 using Postech.Catalog.Api.Application.Utils;
 using Postech.Catalog.Api.Domain.Enums;
 using Postech.Catalog.Api.Infrastructure.Data;
 using Postech.Catalog.Api.Infrastructure.Messaging;
 using Postech.Catalog.Api.Infrastructure.Repositories;
+using Postech.Shared.Contracts;
 using Serilog;
 
 namespace Postech.Catalog.Api.Extensions;
@@ -25,6 +25,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICorrelationContext, CorrelationContext>();
         services.AddScoped<IGameService, GameService>();
         services.AddScoped<IAuthorizationService, AuthorizationService>();
+        services.AddScoped<IOrderRepository, OrderRepository>();
         
         return services;
     }
@@ -43,51 +44,6 @@ public static class ServiceCollectionExtensions
 
         // Messaging
         services.AddScoped<IEventPublisher, RabbitMqEventPublisher>();
-
-        return services;
-    }
-
-    public static IServiceCollection AddMessaging(this IServiceCollection services, IConfiguration configuration)
-    {
-        var rabbitMqHost = configuration["RabbitMQ:Host"] ?? "localhost";
-        var rabbitMqPort = configuration.GetValue<ushort>("RabbitMQ:Port", 5672);
-        var rabbitMqUser = configuration["RabbitMQ:Username"] ?? "guest";
-        var rabbitMqPass = configuration["RabbitMQ:Password"] ?? "guest";
-        var rabbitMqVHost = configuration["RabbitMQ:VirtualHost"] ?? "/";
-        
-        Log.Information("Configuring RabbitMQ with Host: {Host}, Port: {Port}, User: {User}, VirtualHost: {VHost}",
-            rabbitMqHost,
-            rabbitMqPort,
-            rabbitMqUser,
-            rabbitMqVHost);
-        
-        services.AddMassTransit(x =>
-        {
-            x.SetKebabCaseEndpointNameFormatter();
-
-            x.UsingRabbitMq((context, cfg) =>
-            {
-                cfg.Host(rabbitMqHost, rabbitMqPort, rabbitMqVHost, h =>
-                {
-                    h.Username(rabbitMqUser);
-                    h.Password(rabbitMqPass);
-
-                    h.RequestedConnectionTimeout(TimeSpan.FromSeconds(30));
-                    h.Heartbeat(TimeSpan.FromSeconds(10));
-                });
-
-                cfg.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(5)));
-                cfg.PrefetchCount = 16;
-                
-                cfg.Message<OrderPlacedEvent>(x => 
-                    x.SetEntityName("OrderPlacedEvent"));
-                
-                cfg.Message<OrderProcessedEvent>(x => 
-                    x.SetEntityName("OrderProcessedEvent"));
-                
-                cfg.ConfigureEndpoints(context);
-            });
-        });
 
         return services;
     }

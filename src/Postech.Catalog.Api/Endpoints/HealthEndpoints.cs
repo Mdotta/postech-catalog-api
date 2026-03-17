@@ -1,5 +1,5 @@
-using Postech.Catalog.Api.Application.Events;
 using Postech.Catalog.Api.Infrastructure.Messaging;
+using Postech.Shared.Contracts.Events;
 
 namespace Postech.Catalog.Api.Endpoints;
 

@@ -1,9 +1,9 @@
 using ErrorOr;
-using Postech.Catalog.Api.Application.Events;
 using Postech.Catalog.Api.Domain.Entities;
 using Postech.Catalog.Api.Domain.Errors;
 using Postech.Catalog.Api.Infrastructure.Messaging;
 using Postech.Catalog.Api.Infrastructure.Repositories;
+using Postech.Shared.Contracts.Events;
 
 namespace Postech.Catalog.Api.Application.Services;
 

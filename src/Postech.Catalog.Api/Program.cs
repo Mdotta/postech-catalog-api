@@ -1,5 +1,7 @@
+using MassTransit;
 using Microsoft.Net.Http.Headers;
 using Postech.Catalog.Api.Extensions;
+using Postech.Catalog.Api.Infrastructure.MassTransit;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,7 +28,7 @@ builder.Host.UseSerilog((context, services, options) =>
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Services.AddMessaging(builder.Configuration);
+builder.Services.AddMassTransitServices(builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddOpenApiWithAuth();
 

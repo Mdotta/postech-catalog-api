@@ -55,13 +55,13 @@ public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbCo
                     .IsRequired()
                     .HasMaxLength(50);
                 entity.Property(g => g.Price)
-                    .IsRequired(false)
+                    .IsRequired()
                     .HasColumnType("decimal(18,2)");
                 entity.Property(g => g.ReleaseDate)
-                    .IsRequired(false);
+                    .IsRequired();
                 entity.Property(g => g.CreatedAt)
                     .IsRequired()
-                    .HasDefaultValueSql("GETUTCDATE()");
+                    .HasDefaultValueSql("NOW()");
             }
         );
     }
