@@ -27,14 +27,17 @@ public class GameService: IGameService
     {
         var games = await _gameRepository.GetAllAsync(cancellationToken);
         
-        var response = games.Select(game => new GameResponse(
-            game.Id,
-            game.Name,
-            game.Description,
-            game.Price,
-            game.Genre,
-            game.ReleaseDate
-        )).ToList();
+        var response = games
+            .Where(game => game is not null)
+            .Select(game => new GameResponse(
+                game!.Id,
+                game.Name,
+                game.Description,
+                game.Price,
+                game.Genre,
+                game.ReleaseDate
+            ))
+            .ToList();
 
         return response;
     }
@@ -63,12 +66,16 @@ public class GameService: IGameService
     
     public async Task<ErrorOr<Success>> CreateGameAsync(CreateGameRequest request, CancellationToken cancellationToken = default)
     {
+        var releaseDateUtc = DateTime.SpecifyKind(
+            request.ReleaseDate.ToDateTime(TimeOnly.MinValue),
+            DateTimeKind.Utc);
+
         var game = new Game(
             request.Name,
             request.Description,
             request.Price,
             request.Genre,
-            request.ReleaseDate
+            releaseDateUtc
         );
         
         await _gameRepository.AddAsync(game, cancellationToken);
@@ -113,7 +120,10 @@ public class GameService: IGameService
 
         if (request.ReleaseDate.HasValue)
         {
-            game.UpdateReleaseDate(request.ReleaseDate.Value);
+            var releaseDateUtc = DateTime.SpecifyKind(
+                request.ReleaseDate.Value.ToDateTime(TimeOnly.MinValue),
+                DateTimeKind.Utc);
+            game.UpdateReleaseDate(releaseDateUtc);
             changed = true;
         }
         

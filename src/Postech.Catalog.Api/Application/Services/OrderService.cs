@@ -13,18 +13,16 @@ public class OrderService(
     IGameRepository gameRepository,
     IOrderRepository orderRepository):IOrderService
 {
-    public async Task<ErrorOr<Success>> PlaceOrder(Guid userId, Guid gameId)
+    public async Task<ErrorOr<Guid>> PlaceOrder(Guid userId, Guid gameId, CancellationToken cancellationToken = default)
     {
-        // Here you would typically have logic to create an order in your database
-        // For this example, we'll just publish an event to indicate that an order has been placed
-        var game = await gameRepository.GetByIdAsync(gameId);
+        var game = await gameRepository.GetByIdAsync(gameId, cancellationToken);
         if (game == null)
         {
-            logger.LogError($"Game with id {gameId} does not exist");
+            logger.LogError("Game with id {GameId} does not exist", gameId);
             return Errors.Game.NotFound;
         }
 
-        var order = new Order()
+        var order = new Order
         {
             OrderId = Guid.NewGuid(),
             UserId = userId,
@@ -33,19 +31,19 @@ public class OrderService(
             PlacedAt = DateTime.UtcNow,
             Status = Domain.Enums.OrderStatus.Placed
         };
-        await orderRepository.AddAsync(order);
-        
+        await orderRepository.AddAsync(order, cancellationToken);
+
         var orderPlacedEvent = new OrderPlacedEvent
         {
-            GameId = gameId,
+            OrderId = order.OrderId,
             UserId = userId,
-            OrderId = Guid.NewGuid(),
-            TotalAmount = 59.99m,
-            PlacedAt = DateTime.UtcNow
+            GameId = gameId,
+            TotalAmount = order.TotalAmount,
+            PlacedAt = order.PlacedAt
         };
-        
-        await publisher.PublishAsync(orderPlacedEvent);
 
-        return Result.Success;
+        await publisher.PublishAsync(orderPlacedEvent, cancellationToken);
+
+        return order.OrderId;
     }
 }

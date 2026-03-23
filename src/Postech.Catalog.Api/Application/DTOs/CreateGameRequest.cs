@@ -5,5 +5,5 @@ public record CreateGameRequest(
     string Description,
     decimal Price,
     string Genre,
-    DateTime ReleaseDate
+    DateOnly ReleaseDate
 );

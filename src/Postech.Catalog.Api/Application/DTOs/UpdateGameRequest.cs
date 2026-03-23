@@ -6,5 +6,5 @@ public record UpdateGameRequest(
     string? Description = default,
     decimal? Price = default,
     string? Genre = default,
-    DateTime? ReleaseDate = default
+    DateOnly? ReleaseDate = default
 );

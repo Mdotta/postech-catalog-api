@@ -26,6 +26,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGameService, GameService>();
         services.AddScoped<IAuthorizationService, AuthorizationService>();
         services.AddScoped<IOrderRepository, OrderRepository>();
+        services.AddScoped<IOrderService, OrderService>();
         
         return services;
     }
@@ -121,6 +122,8 @@ public static class ServiceCollectionExtensions
 
                 return Task.CompletedTask;
             });
+
+            options.AddDocumentTransformer(CatalogOpenApiExamplesTransformer.ApplyAsync);
         });
 
         return services;
