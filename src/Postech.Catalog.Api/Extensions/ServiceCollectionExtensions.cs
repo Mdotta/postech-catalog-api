@@ -24,6 +24,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.AddScoped<ICorrelationContext, CorrelationContext>();
         services.AddScoped<IGameService, GameService>();
+        services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IAuthorizationService, AuthorizationService>();
         services.AddScoped<IOrderRepository, OrderRepository>();
         

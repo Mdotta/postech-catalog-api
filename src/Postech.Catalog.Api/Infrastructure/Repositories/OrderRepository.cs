@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Postech.Catalog.Api.Domain.Entities;
+using Postech.Catalog.Api.Domain.Enums;
 using Postech.Catalog.Api.Infrastructure.Data;
 
 namespace Postech.Catalog.Api.Infrastructure.Repositories;
@@ -24,6 +25,14 @@ public class OrderRepository(CatalogDbContext context): IOrderRepository
     {
         await context.Orders.AddAsync(order, cancellationToken);
         await  context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IEnumerable<Order>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await context.Orders
+            .AsNoTracking()
+            .Where(x => x.UserId == userId && x.Status == OrderStatus.Completed)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(Order order, CancellationToken cancellationToken = default)

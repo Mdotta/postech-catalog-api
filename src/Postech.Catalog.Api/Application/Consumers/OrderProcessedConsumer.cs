@@ -37,6 +37,8 @@ public class OrderProcessedConsumer(ILogger<OrderProcessedConsumer> logger, IOrd
                 order.Status = OrderStatus.Cancelled;
                 logger.LogInformation($"Order with id {context.Message.OrderId} failed to process and has been cancelled.\nReason: {context.Message.FailureReason}");
             }
+
+            await orderRepository.UpdateAsync(order, context.CancellationToken);
         }
     }
 }

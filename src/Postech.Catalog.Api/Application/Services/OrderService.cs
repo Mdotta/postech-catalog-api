@@ -1,4 +1,5 @@
 using ErrorOr;
+using Postech.Catalog.Api.Application.DTOs;
 using Postech.Catalog.Api.Domain.Entities;
 using Postech.Catalog.Api.Domain.Errors;
 using Postech.Catalog.Api.Infrastructure.Messaging;
@@ -8,23 +9,21 @@ using Postech.Shared.Contracts.Events;
 namespace Postech.Catalog.Api.Application.Services;
 
 public class OrderService(
-    ILogger<OrderService> logger, 
+    ILogger<OrderService> logger,
     IEventPublisher publisher,
     IGameRepository gameRepository,
-    IOrderRepository orderRepository):IOrderService
+    IOrderRepository orderRepository) : IOrderService
 {
-    public async Task<ErrorOr<Success>> PlaceOrder(Guid userId, Guid gameId)
+    public async Task<ErrorOr<Guid>> PlaceOrder(Guid userId, Guid gameId)
     {
-        // Here you would typically have logic to create an order in your database
-        // For this example, we'll just publish an event to indicate that an order has been placed
         var game = await gameRepository.GetByIdAsync(gameId);
         if (game == null)
         {
-            logger.LogError($"Game with id {gameId} does not exist");
+            logger.LogError("Game with id {GameId} does not exist", gameId);
             return Errors.Game.NotFound;
         }
 
-        var order = new Order()
+        var order = new Order
         {
             OrderId = Guid.NewGuid(),
             UserId = userId,
@@ -34,18 +33,34 @@ public class OrderService(
             Status = Domain.Enums.OrderStatus.Placed
         };
         await orderRepository.AddAsync(order);
-        
+
         var orderPlacedEvent = new OrderPlacedEvent
         {
             GameId = gameId,
             UserId = userId,
-            OrderId = Guid.NewGuid(),
-            TotalAmount = 59.99m,
-            PlacedAt = DateTime.UtcNow
+            OrderId = order.OrderId,
+            TotalAmount = game.Price,
+            PlacedAt = order.PlacedAt
         };
-        
+
         await publisher.PublishAsync(orderPlacedEvent);
 
-        return Result.Success;
+        logger.LogInformation("Order {OrderId} placed for user {UserId}, game {GameId}", order.OrderId, userId, gameId);
+        return order.OrderId;
+    }
+
+    public async Task<ErrorOr<List<GameResponse>>> GetUserLibraryAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var orders = await orderRepository.GetByUserIdAsync(userId, cancellationToken);
+        var games = new List<GameResponse>();
+
+        foreach (var order in orders)
+        {
+            var game = await gameRepository.GetByIdAsync(order.GameId, cancellationToken);
+            if (game is not null)
+                games.Add(new GameResponse(game.Id, game.Name, game.Description, game.Price, game.Genre, game.ReleaseDate));
+        }
+
+        return games;
     }
 }
