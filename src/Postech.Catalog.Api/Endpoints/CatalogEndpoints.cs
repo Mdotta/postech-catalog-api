@@ -48,7 +48,7 @@ public static class CatalogEndpoints
                 await CreateOrderAsync(user, request, orderService))
             .WithName("CreateOrder")
             .WithSummary("Place a new order for a game")
-            .WithDescription("Publishes an OrderPlacedEvent and returns 202 Accepted immediately. Order completion is handled asynchronously via RabbitMQ.")
+            .WithDescription("Publishes an OrderPlacedEvent to SNS and returns 202 Accepted immediately. Order completion is handled asynchronously.")
             .RequireAuthorization(Policies.RequireUserRole)
             .Produces(StatusCodes.Status202Accepted)
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound);

@@ -1,10 +1,9 @@
 using System.Security.Claims;
-using System.Text;
 using Postech.Catalog.Api.Domain.Authorization;
-using MassTransit;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Amazon.Extensions.NETCore.Setup;
+using Amazon.SimpleNotificationService;
+using Amazon.SQS;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Postech.Catalog.Api.Application.Services;
 using Postech.Catalog.Api.Application.Utils;
@@ -12,8 +11,6 @@ using Postech.Catalog.Api.Domain.Enums;
 using Postech.Catalog.Api.Infrastructure.Data;
 using Postech.Catalog.Api.Infrastructure.Messaging;
 using Postech.Catalog.Api.Infrastructure.Repositories;
-using Postech.Shared.Contracts;
-using Serilog;
 
 namespace Postech.Catalog.Api.Extensions;
 
@@ -43,49 +40,47 @@ public static class ServiceCollectionExtensions
         // Repositories
         services.AddScoped<IGameRepository, GameRepository>();
 
-        // Messaging
-        services.AddScoped<IEventPublisher, RabbitMqEventPublisher>();
+        // AWS Services
+        var serviceUrl = configuration["AWS:ServiceURL"];
+
+        if (!string.IsNullOrWhiteSpace(serviceUrl))
+        {
+            services.AddSingleton<IAmazonSimpleNotificationService>(_ =>
+                new AmazonSimpleNotificationServiceClient(
+                    new AmazonSimpleNotificationServiceConfig { ServiceURL = serviceUrl }));
+            services.AddSingleton<IAmazonSQS>(_ =>
+                new AmazonSQSClient(
+                    new AmazonSQSConfig { ServiceURL = serviceUrl }));
+        }
+        else
+        {
+            services.AddDefaultAWSOptions(configuration.GetAWSOptions());
+            services.AddAWSService<IAmazonSimpleNotificationService>();
+            services.AddAWSService<IAmazonSQS>();
+        }
+
+        // Messaging - SNS for publishing events
+        services.AddScoped<IEventPublisher, SnsEventPublisher>();
+        
+        // SQS Consumer for order events
+        services.AddHostedService<SqsOrderEventConsumer>();
 
         return services;
     }
 
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
-        var jwtSecret = configuration["JwtSettings:SecretKey"] 
-                        ?? throw new InvalidOperationException("JWT Secret is not configured");
-
-        var jwtIssuer = configuration["JwtSettings:Issuer"]
-                        ?? throw new InvalidOperationException("JWT Issuer is not configured");
-
-        var jwtAudience = configuration["JwtSettings:Audience"]
-                          ?? throw new InvalidOperationException("JWT Audience is not configured");
-
-        var key = Encoding.UTF8.GetBytes(jwtSecret);
-
+        // Note: JWT validation is now handled by API Gateway (Cognito)
+        // This service only extracts claims from the token for policy checks
+        
         services.AddAuthentication(options =>
         {
-            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultAuthenticateScheme = "PassThrough";
+            options.DefaultChallengeScheme = "PassThrough";
         })
-        .AddJwtBearer(options =>
-        {
-            options.RequireHttpsMetadata = false; // Dev only
-            options.SaveToken = true;
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(key),
-                ValidateIssuer = true,
-                ValidIssuer = jwtIssuer,
-                ValidateAudience = true,
-                ValidAudience = jwtAudience,
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero,
-                RoleClaimType = ClaimTypes.Role
-            };
-        });
+        .AddScheme<PassThroughAuthenticationOptions, PassThroughAuthenticationHandler>("PassThrough", null);
     
-        // Configurar Policies
+        // Configure Policies - these will check claims set by API Gateway
         services.AddAuthorizationBuilder()
             .AddPolicy(Policies.RequireAdminRole, policy => policy.RequireRole(UserRoles.Administrator.ToString()))
             .AddPolicy(Policies.RequireUserRole, policy => policy.RequireRole(UserRoles.User.ToString(), UserRoles.Administrator.ToString()));
