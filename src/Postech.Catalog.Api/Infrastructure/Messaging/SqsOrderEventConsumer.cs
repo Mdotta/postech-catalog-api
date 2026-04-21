@@ -46,7 +46,7 @@ public class SqsOrderEventConsumer : BackgroundService
 
                 var response = await _sqsClient.ReceiveMessageAsync(receiveRequest, stoppingToken);
 
-                if (response.Messages.Count == 0)
+                if (response.Messages is null || response.Messages.Count == 0)
                 {
                     continue;
                 }
