@@ -5,5 +5,10 @@ public record CreateGameRequest(
     string Description,
     decimal Price,
     string Genre,
-    DateTime ReleaseDate
+    DateTime ReleaseDate,
+    // Campos expandidos — salvos apenas no MongoDB
+    List<string>? Tags = null,
+    List<string>? Screenshots = null,
+    string? Developer = null,
+    string? Publisher = null
 );
