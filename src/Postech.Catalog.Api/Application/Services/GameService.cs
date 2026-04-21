@@ -2,6 +2,7 @@ using ErrorOr;
 using Postech.Catalog.Api.Application.DTOs;
 using Postech.Catalog.Api.Domain.Entities;
 using Postech.Catalog.Api.Domain.Errors;
+using Postech.Catalog.Api.Infrastructure.Cache;
 using Postech.Catalog.Api.Infrastructure.Messaging;
 using Postech.Catalog.Api.Infrastructure.MongoDB.Documents;
 using Postech.Catalog.Api.Infrastructure.MongoDB.Repositories;
@@ -11,25 +12,39 @@ namespace Postech.Catalog.Api.Application.Services;
 
 public class GameService: IGameService
 {
-    
+    private const string AllGamesCacheKey = "catalog:games:all";
+
     private readonly IGameRepository _gameRepository;
     private readonly IGameMongoRepository? _gameMongoRepository;
+    private readonly ICacheService? _cacheService;
     private readonly IEventPublisher _eventPublisher;
     private readonly ILogger<GameService> _logger;
     
     public GameService(IGameRepository gameRepository,
         IEventPublisher eventPublisher,
         ILogger<GameService> logger,
-        IGameMongoRepository? gameMongoRepository = null)
+        IGameMongoRepository? gameMongoRepository = null,
+        ICacheService? cacheService = null)
     {
         _gameRepository = gameRepository;
         _eventPublisher = eventPublisher;
         _logger = logger;
         _gameMongoRepository = gameMongoRepository;
+        _cacheService = cacheService;
     }
     
     public async Task<ErrorOr<List<GameResponse>>> GetAllGamesAsync(CancellationToken cancellationToken = default)
     {
+        if (_cacheService is not null)
+        {
+            var cached = await _cacheService.GetAsync<List<GameResponse>>(AllGamesCacheKey, cancellationToken);
+            if (cached is not null)
+            {
+                _logger.LogInformation("Cache hit: {Key}", AllGamesCacheKey);
+                return cached;
+            }
+        }
+
         var games = await _gameRepository.GetAllAsync(cancellationToken);
         
         var response = games.Select(game => new GameResponse(
@@ -40,6 +55,9 @@ public class GameService: IGameService
             game.Genre,
             game.ReleaseDate
         )).ToList();
+
+        if (_cacheService is not null)
+            await _cacheService.SetAsync(AllGamesCacheKey, response, TimeSpan.FromMinutes(5), cancellationToken);
 
         return response;
     }
@@ -89,6 +107,9 @@ public class GameService: IGameService
                 _logger.LogWarning(ex, "MongoDB sync failed for game {GameId}. Postgres record is intact.", game.Id);
             }
         }
+
+        if (_cacheService is not null)
+            await _cacheService.RemoveAsync(AllGamesCacheKey, cancellationToken);
 
         return Result.Success;
     }
@@ -150,6 +171,9 @@ public class GameService: IGameService
                     _logger.LogWarning(ex, "MongoDB sync failed for game {GameId}. Postgres record is intact.", game.Id);
                 }
             }
+
+            if (_cacheService is not null)
+                await _cacheService.RemoveAsync(AllGamesCacheKey, cancellationToken);
         }
 
         return Result.Success;
@@ -178,6 +202,9 @@ public class GameService: IGameService
                 _logger.LogWarning(ex, "MongoDB sync failed on delete for game {GameId}. Postgres record is intact.", id);
             }
         }
+
+        if (_cacheService is not null)
+            await _cacheService.RemoveAsync(AllGamesCacheKey, cancellationToken);
 
         return Result.Success;
     }

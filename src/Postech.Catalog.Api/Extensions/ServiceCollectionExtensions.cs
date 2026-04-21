@@ -9,11 +9,13 @@ using MongoDB.Driver;
 using Postech.Catalog.Api.Application.Services;
 using Postech.Catalog.Api.Application.Utils;
 using Postech.Catalog.Api.Domain.Enums;
+using Postech.Catalog.Api.Infrastructure.Cache;
 using Postech.Catalog.Api.Infrastructure.Data;
 using Postech.Catalog.Api.Infrastructure.Messaging;
 using Postech.Catalog.Api.Infrastructure.MongoDB;
 using Postech.Catalog.Api.Infrastructure.MongoDB.Repositories;
 using Postech.Catalog.Api.Infrastructure.Repositories;
+using StackExchange.Redis;
 
 namespace Postech.Catalog.Api.Extensions;
 
@@ -51,6 +53,15 @@ public static class ServiceCollectionExtensions
             var mongoDatabase = mongoClient.GetDatabase(mongoSettings.DatabaseName);
             services.AddSingleton(mongoDatabase);
             services.AddScoped<IGameMongoRepository, GameMongoRepository>();
+        }
+
+        // Redis
+        var redisConnectionString = configuration["Redis:ConnectionString"];
+        if (!string.IsNullOrWhiteSpace(redisConnectionString))
+        {
+            services.AddSingleton<IConnectionMultiplexer>(_ =>
+                ConnectionMultiplexer.Connect(redisConnectionString));
+            services.AddScoped<ICacheService, RedisCacheService>();
         }
 
         // AWS Services

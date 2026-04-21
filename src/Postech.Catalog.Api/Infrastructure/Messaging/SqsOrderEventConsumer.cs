@@ -1,6 +1,7 @@
 using Amazon.SQS;
 using Amazon.SQS.Model;
 using System.Text.Json;
+using Postech.Catalog.Api.Infrastructure.Cache;
 using Postech.Catalog.Api.Infrastructure.Repositories;
 using Postech.Catalog.Api.Domain.Enums;
 using Postech.Shared.Contracts.Events;
@@ -122,6 +123,7 @@ public class SqsOrderEventConsumer : BackgroundService
     {
         using var scope = _serviceProvider.CreateAsyncScope();
         var orderRepository = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
+        var cacheService = scope.ServiceProvider.GetService<ICacheService>();
 
         _logger.LogInformation("Handling OrderProcessedEvent for Order {OrderId}", orderEvent.OrderId);
 
@@ -143,6 +145,9 @@ public class SqsOrderEventConsumer : BackgroundService
         {
             order.Status = OrderStatus.Completed;
             _logger.LogInformation("Order with id {OrderId} processed successfully", orderEvent.OrderId);
+
+            if (cacheService is not null)
+                await cacheService.RemoveAsync($"catalog:library:{order.UserId}", cancellationToken);
         }
         else
         {
