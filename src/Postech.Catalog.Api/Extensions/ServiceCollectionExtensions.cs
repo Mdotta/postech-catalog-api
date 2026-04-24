@@ -83,7 +83,7 @@ public static class ServiceCollectionExtensions
         // Configure Policies - these will check claims set by API Gateway
         services.AddAuthorizationBuilder()
             .AddPolicy(Policies.RequireAdminRole, policy => policy.RequireRole(UserRoles.Administrator.ToString()))
-            .AddPolicy(Policies.RequireUserRole, policy => policy.RequireRole(UserRoles.User.ToString(), UserRoles.Administrator.ToString()));
+            .AddPolicy(Policies.RequireUserRole, policy => policy.RequireAuthenticatedUser());
 
         return services;
     }

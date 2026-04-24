@@ -17,8 +17,11 @@ set -euo pipefail
 # Required environment variables:
 #   AWS_ACCOUNT_ID        - Your AWS account ID
 #   DB_CONNECTION_STRING  - Full PostgreSQL connection string
+#                           (set automatically by setup-rds.sh via deployment.env)
 #   SNS_TOPIC_ARN         - ARN of the SNS order-created topic
+#                           (or set CATALOG_SNS_TOPIC_ARN from deployment.env)
 #   SQS_QUEUE_URL         - URL of the catalog-order-processed SQS queue
+#                           (or set CATALOG_SQS_QUEUE_URL from deployment.env)
 #
 # Optional:
 #   AWS_REGION            - Defaults to us-east-1
@@ -31,8 +34,10 @@ set -euo pipefail
 
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:?❌ AWS_ACCOUNT_ID is not set}"
 DB_CONNECTION_STRING="${DB_CONNECTION_STRING:?❌ DB_CONNECTION_STRING is not set}"
-SNS_TOPIC_ARN="${SNS_TOPIC_ARN:?❌ SNS_TOPIC_ARN is not set}"
-SQS_QUEUE_URL="${SQS_QUEUE_URL:?❌ SQS_QUEUE_URL is not set}"
+SNS_TOPIC_ARN="${SNS_TOPIC_ARN:-${CATALOG_SNS_TOPIC_ARN:-}}"
+SNS_TOPIC_ARN="${SNS_TOPIC_ARN:?❌ SNS_TOPIC_ARN or CATALOG_SNS_TOPIC_ARN is not set}"
+SQS_QUEUE_URL="${SQS_QUEUE_URL:-${CATALOG_SQS_QUEUE_URL:-}}"
+SQS_QUEUE_URL="${SQS_QUEUE_URL:?❌ SQS_QUEUE_URL or CATALOG_SQS_QUEUE_URL is not set}"
 
 AWS_REGION="${AWS_REGION:-us-east-1}"
 INSTANCE_TYPE="${INSTANCE_TYPE:-t3.micro}"
@@ -199,7 +204,7 @@ else
 fi
 
 # --- Step 8: Update API Gateway catalog-api integration with new EC2 IP ------
-# Finds the catalog-api integration via the GET /api/game route target
+# Finds the catalog-api integration via the GET /game route target
 log "Updating API Gateway catalog-api integration with new EC2 IP ($PUBLIC_IP)..."
 
 API_ID=$(aws apigatewayv2 get-apis \
@@ -211,7 +216,7 @@ if [[ -n "$API_ID" && "$API_ID" != "None" ]]; then
   ROUTE_TARGET=$(aws apigatewayv2 get-routes \
     --api-id "$API_ID" \
     --region "$AWS_REGION" \
-    --query "Items[?RouteKey=='GET /api/game'].Target" \
+    --query "Items[?RouteKey=='GET /game'].Target" \
     --output text 2>/dev/null) || ROUTE_TARGET=""
 
   INTEGRATION_ID=$(echo "$ROUTE_TARGET" | sed 's|integrations/||')

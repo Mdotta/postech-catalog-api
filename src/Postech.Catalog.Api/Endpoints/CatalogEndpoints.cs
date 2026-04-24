@@ -5,6 +5,7 @@ using Postech.Catalog.Api.Application.DTOs;
 using Postech.Catalog.Api.Application.Services;
 using Postech.Catalog.Api.Application.Validations;
 using Postech.Catalog.Api.Domain.Authorization;
+using AppClaimTypes = Postech.Catalog.Api.Application.Constants.ClaimTypes;
 
 namespace Postech.Catalog.Api.Endpoints;
 
@@ -12,7 +13,7 @@ public static class CatalogEndpoints
 {
     public static void MapCatalogEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/game");
+        var group = app.MapGroup("/game");
 
         group.MapGet("/", async ([FromServices] IGameService gameService, CancellationToken ct) =>
                 await ListGamesAsync(gameService, ct))
@@ -111,7 +112,9 @@ public static class CatalogEndpoints
 
     private static async Task<IResult> CreateOrderAsync(ClaimsPrincipal user, CreateOrderRequest request, IOrderService orderService)
     {
-        var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userIdClaim = user.FindFirst(AppClaimTypes.AppUserId)?.Value
+                          ?? user.FindFirst(AppClaimTypes.AlternateAppUserId)?.Value
+                          ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
             return Results.Unauthorized();
 
@@ -124,7 +127,9 @@ public static class CatalogEndpoints
 
     private static async Task<IResult> GetLibraryAsync(ClaimsPrincipal user, IOrderService orderService, CancellationToken ct)
     {
-        var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userIdClaim = user.FindFirst(AppClaimTypes.AppUserId)?.Value
+                          ?? user.FindFirst(AppClaimTypes.AlternateAppUserId)?.Value
+                          ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
             return Results.Unauthorized();
 
