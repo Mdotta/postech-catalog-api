@@ -61,6 +61,13 @@ public static class CatalogEndpoints
             .WithDescription("Returns games from orders with status Completed.")
             .RequireAuthorization(Policies.RequireUserRole)
             .Produces<List<GameResponse>>(StatusCodes.Status200OK);
+
+            group.MapGet("/debug/headers", (HttpContext httpContext, ClaimsPrincipal user) =>
+                GetDebugHeaders(httpContext, user))
+            .WithName("GetReceivedHeaders")
+            .WithSummary("Debug: echo received headers and resolved claims")
+            .RequireAuthorization(Policies.RequireAdminRole)
+            .Produces(StatusCodes.Status200OK);
     }
 
     private static async Task<IResult> ListGamesAsync(IGameService gameService, CancellationToken ct)
@@ -158,5 +165,26 @@ public static class CatalogEndpoints
                 detail: string.Join(";\n", errors.Select(e => e.Description)),
                 statusCode: StatusCodes.Status500InternalServerError)
         };
+    }
+
+    private static IResult GetDebugHeaders(HttpContext httpContext, ClaimsPrincipal user)
+    {
+        var headers = httpContext.Request.Headers
+            .ToDictionary(
+                h => h.Key,
+                h => h.Value.ToArray(),
+                StringComparer.OrdinalIgnoreCase);
+
+        var claims = user.Claims
+            .Select(c => new { c.Type, c.Value })
+            .ToList();
+
+        return Results.Ok(new
+        {
+            method = httpContext.Request.Method,
+            path = httpContext.Request.Path.Value,
+            headers,
+            claims
+        });
     }
 }

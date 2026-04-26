@@ -226,7 +226,7 @@ if [[ -n "$API_ID" && "$API_ID" != "None" ]]; then
       --api-id "$API_ID" \
       --integration-id "$INTEGRATION_ID" \
       --integration-uri "http://$PUBLIC_IP" \
-      --request-parameters '{"overwrite:path": "$request.path"}' \
+      --request-parameters '{"overwrite:path": "$request.path","append:header.X-User-Id":"$context.authorizer.jwt.claims.sub","append:header.X-User-Name":"$context.authorizer.jwt.claims.email"}' \
       --region "$AWS_REGION" > /dev/null
     ok "API Gateway catalog-api integration updated → http://$PUBLIC_IP (path stripping enabled)"
   else
