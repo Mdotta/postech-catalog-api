@@ -56,7 +56,6 @@ public class SqsOrderEventConsumer : BackgroundService
                     {
                         await ProcessMessageAsync(message, stoppingToken);
                         
-                        // Delete message after successful processing
                         await _sqsClient.DeleteMessageAsync(_queueUrl, message.ReceiptHandle, stoppingToken);
                     }
                     catch (Exception ex)
@@ -77,44 +76,20 @@ public class SqsOrderEventConsumer : BackgroundService
 
     private async Task ProcessMessageAsync(Message message, CancellationToken cancellationToken)
     {
-        try
+        var eventType = message.MessageAttributes.ContainsKey("EventType")
+            ? message.MessageAttributes["EventType"].StringValue
+            : null;
+
+        _logger.LogInformation("Processing SQS message {MessageId} of type {EventType}",
+            message.MessageId, eventType);
+
+        if (eventType == nameof(OrderProcessedEvent))
         {
-            var eventType = message.MessageAttributes.ContainsKey("EventType")
-                ? message.MessageAttributes["EventType"].StringValue
-                : null;
-
-            _logger.LogInformation("Processing SQS message {MessageId} of type {EventType}", 
-                message.MessageId, eventType);
-
-            // Parse the SNS message wrapper (SQS receives SNS messages as JSON)
-            var snsMessage = JsonSerializer.Deserialize<SnsMessageWrapper>(message.Body);
-            if (snsMessage == null)
+            var orderEvent = JsonSerializer.Deserialize<OrderProcessedEvent>(message.Body);
+            if (orderEvent != null)
             {
-                _logger.LogWarning("Failed to deserialize SNS message from SQS");
-                return;
+                await HandleOrderProcessedEventAsync(orderEvent, cancellationToken);
             }
-
-            // Extract correlation ID if available
-            if (snsMessage.MessageAttributes?.ContainsKey("CorrelationId") == true)
-            {
-                var correlationId = snsMessage.MessageAttributes["CorrelationId"].Value;
-                // You might want to set this in a context for logging
-            }
-
-            // Handle OrderProcessedEvent
-            if (eventType == nameof(OrderProcessedEvent))
-            {
-                var orderEvent = JsonSerializer.Deserialize<OrderProcessedEvent>(snsMessage.Message);
-                if (orderEvent != null)
-                {
-                    await HandleOrderProcessedEventAsync(orderEvent, cancellationToken);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error processing message content");
-            throw;
         }
     }
 
@@ -134,7 +109,7 @@ public class SqsOrderEventConsumer : BackgroundService
 
         if (order.Status != OrderStatus.Placed)
         {
-            _logger.LogWarning("Order with id {OrderId} was already processed. Current status: {Status}", 
+            _logger.LogWarning("Order with id {OrderId} was already processed. Current status: {Status}",
                 orderEvent.OrderId, order.Status);
             return;
         }
@@ -147,23 +122,10 @@ public class SqsOrderEventConsumer : BackgroundService
         else
         {
             order.Status = OrderStatus.Cancelled;
-            _logger.LogInformation("Order with id {OrderId} failed to process. Reason: {Reason}", 
+            _logger.LogInformation("Order with id {OrderId} failed to process. Reason: {Reason}",
                 orderEvent.OrderId, orderEvent.FailureReason);
         }
 
         await orderRepository.UpdateAsync(order, cancellationToken);
     }
-}
-
-// Helper class to deserialize SNS message wrapper from SQS
-public class SnsMessageWrapper
-{
-    public string Message { get; set; } = string.Empty;
-    public Dictionary<string, SnsMessageAttribute>? MessageAttributes { get; set; }
-}
-
-public class SnsMessageAttribute
-{
-    public string Type { get; set; } = string.Empty;
-    public string Value { get; set; } = string.Empty;
 }
