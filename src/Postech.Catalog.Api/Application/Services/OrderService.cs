@@ -2,6 +2,7 @@ using ErrorOr;
 using Postech.Catalog.Api.Application.DTOs;
 using Postech.Catalog.Api.Domain.Entities;
 using Postech.Catalog.Api.Domain.Errors;
+using Postech.Catalog.Api.Infrastructure.Cache;
 using Postech.Catalog.Api.Infrastructure.Messaging;
 using Postech.Catalog.Api.Infrastructure.Repositories;
 using Postech.Shared.Contracts.Events;
@@ -12,8 +13,11 @@ public class OrderService(
     ILogger<OrderService> logger,
     IEventPublisher publisher,
     IGameRepository gameRepository,
-    IOrderRepository orderRepository) : IOrderService
+    IOrderRepository orderRepository,
+    ICacheService? cacheService = null) : IOrderService
 {
+    private static string LibraryCacheKey(Guid userId) => $"catalog:library:{userId}";
+
     public async Task<ErrorOr<Guid>> PlaceOrder(Guid userId, Guid gameId)
     {
         var game = await gameRepository.GetByIdAsync(gameId);
@@ -51,6 +55,18 @@ public class OrderService(
 
     public async Task<ErrorOr<List<GameResponse>>> GetUserLibraryAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        var cacheKey = LibraryCacheKey(userId);
+
+        if (cacheService is not null)
+        {
+            var cached = await cacheService.GetAsync<List<GameResponse>>(cacheKey, cancellationToken);
+            if (cached is not null)
+            {
+                logger.LogInformation("Cache hit: {Key}", cacheKey);
+                return cached;
+            }
+        }
+
         var orders = await orderRepository.GetByUserIdAsync(userId, cancellationToken);
         var games = new List<GameResponse>();
 
@@ -60,6 +76,9 @@ public class OrderService(
             if (game is not null)
                 games.Add(new GameResponse(game.Id, game.Name, game.Description, game.Price, game.Genre, game.ReleaseDate));
         }
+
+        if (cacheService is not null)
+            await cacheService.SetAsync(cacheKey, games, TimeSpan.FromMinutes(2), cancellationToken);
 
         return games;
     }

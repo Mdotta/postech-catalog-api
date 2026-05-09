@@ -1,7 +1,7 @@
-# Dependências para rodar a API localmente (PostgreSQL + RabbitMQ).
+# Dependências para rodar a API localmente (PostgreSQL + RabbitMQ + MongoDB).
 # Suba com: docker-compose up -d
 # Depois: dotnet run
-# Connection string e RabbitMQ em appsettings.json já apontam para localhost.
+# Connection strings em appsettings.json já apontam para localhost.
 
 services:
   postgres:
@@ -27,6 +27,20 @@ services:
       - "15672:15672" # Management UI (guest/guest)
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7-jammy
+    container_name: catalog-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: postgres
+      MONGO_INITDB_ROOT_PASSWORD: postgres
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
       retries: 5
