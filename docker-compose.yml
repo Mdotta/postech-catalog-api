@@ -1,9 +1,9 @@
 # Dependências para rodar a API localmente (PostgreSQL + RabbitMQ + MongoDB).
 # Suba com: docker-compose up -d
 # Depois: dotnet run
-# Connection strings em appsettings.json já apontam para localhost.
 
 services:
+
   postgres:
     image: postgres:16-alpine
     container_name: catalog-postgres
@@ -44,3 +44,26 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  prometheus:
+    image: prom/prometheus
+    container_name: catalog-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - postgres
+      - rabbitmq
+      - mongodb
+
+  grafana:
+    image: grafana/grafana
+    container_name: catalog-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    depends_on:
+      - prometheus

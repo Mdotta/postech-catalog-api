@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Postech.Catalog.Api.Endpoints;
 using Microsoft.EntityFrameworkCore;
 using Postech.Catalog.Api.Infrastructure.Data;
 using Postech.Catalog.Api.Middleware;
+using Prometheus;
 using Scalar.AspNetCore;
 
 namespace Postech.Catalog.Api.Extensions;
@@ -13,6 +15,9 @@ public static class WebApplicationExtensions
         // Middleware
         app.UseMiddleware<CorrelationIdMiddleware>();
 
+        app.UseRouting();
+        app.UseHttpMetrics(options => options.AddCustomLabel("service", _ => "catalog-api"));
+
         if (app.Environment.IsDevelopment())
         {
             app.UseDeveloperExceptionPage();
@@ -21,6 +26,8 @@ public static class WebApplicationExtensions
         app.UseAuthentication();
         app.UseAuthorization();
 
+        app.MapMetrics("/metrics").AllowAnonymous();
+        
         // Scalar
         app.MapOpenApi();
         app.MapScalarApiReference();
