@@ -16,7 +16,6 @@ public static class WebApplicationExtensions
         app.UseMiddleware<CorrelationIdMiddleware>();
 
         app.UseRouting();
-        app.UseHttpMetrics(options => options.AddCustomLabel("service", _ => "catalog-api"));
 
         if (app.Environment.IsDevelopment())
         {
@@ -25,16 +24,17 @@ public static class WebApplicationExtensions
 
         app.UseAuthentication();
         app.UseAuthorization();
+        app.MapHealthEndpoints();
 
         app.MapMetrics("/metrics").AllowAnonymous();
         
-        // Scalar
+        app.UseHttpMetrics(options => options.AddCustomLabel("service", _ => "catalog-api"));
+        
         app.MapOpenApi();
         app.MapScalarApiReference();
 
         // Map Endpoints
         app.MapCatalogEndpoints();
-        app.MapHealthEndpoints();
 
         return app;
     }
