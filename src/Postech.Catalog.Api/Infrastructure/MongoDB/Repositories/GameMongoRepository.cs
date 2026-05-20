@@ -1,9 +1,10 @@
 using MongoDB.Driver;
 using Postech.Catalog.Api.Infrastructure.MongoDB.Documents;
+using Postech.Catalog.Api.Infrastructure.Repositories;
 
 namespace Postech.Catalog.Api.Infrastructure.MongoDB.Repositories;
 
-public class GameMongoRepository : IGameMongoRepository
+public class GameMongoRepository : IGameDocumentRepository
 {
     private readonly IMongoCollection<GameDocument> _collection;
 

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Postech.Catalog.Api.Domain.Authorization;
+using Amazon.DynamoDBv2;
 using Amazon.Extensions.NETCore.Setup;
 using Amazon.SimpleNotificationService;
 using Amazon.SQS;
@@ -11,6 +12,8 @@ using Postech.Catalog.Api.Application.Utils;
 using Postech.Catalog.Api.Domain.Enums;
 using Postech.Catalog.Api.Infrastructure.Cache;
 using Postech.Catalog.Api.Infrastructure.Data;
+using Postech.Catalog.Api.Infrastructure.DynamoDB;
+using Postech.Catalog.Api.Infrastructure.DynamoDB.Repositories;
 using Postech.Catalog.Api.Infrastructure.Messaging;
 using Postech.Catalog.Api.Infrastructure.MongoDB;
 using Postech.Catalog.Api.Infrastructure.MongoDB.Repositories;
@@ -45,14 +48,27 @@ public static class ServiceCollectionExtensions
         // Repositories
         services.AddScoped<IGameRepository, GameRepository>();
 
-        // MongoDB
-        var mongoSettings = configuration.GetSection("MongoDB").Get<MongoDbSettings>();
-        if (mongoSettings is not null && !string.IsNullOrWhiteSpace(mongoSettings.ConnectionString))
+        // Document database (MongoDB or DynamoDB)
+        var dynamoSettings = configuration.GetSection("DynamoDB").Get<DynamoDbSettings>();
+        if (dynamoSettings is not null && dynamoSettings.UseDynamoDB && !string.IsNullOrWhiteSpace(dynamoSettings.TableName))
         {
-            var mongoClient = new MongoClient(mongoSettings.ConnectionString);
-            var mongoDatabase = mongoClient.GetDatabase(mongoSettings.DatabaseName);
-            services.AddSingleton(mongoDatabase);
-            services.AddScoped<IGameMongoRepository, GameMongoRepository>();
+            services.AddAWSService<IAmazonDynamoDB>();
+            services.AddScoped<IGameDocumentRepository>(sp =>
+            {
+                var dynamoDb = sp.GetRequiredService<IAmazonDynamoDB>();
+                return new GameDynamoRepository(dynamoDb, dynamoSettings.TableName);
+            });
+        }
+        else
+        {
+            var mongoSettings = configuration.GetSection("MongoDB").Get<MongoDbSettings>();
+            if (mongoSettings is not null && !string.IsNullOrWhiteSpace(mongoSettings.ConnectionString))
+            {
+                var mongoClient = new MongoClient(mongoSettings.ConnectionString);
+                var mongoDatabase = mongoClient.GetDatabase(mongoSettings.DatabaseName);
+                services.AddSingleton(mongoDatabase);
+                services.AddScoped<IGameDocumentRepository, GameMongoRepository>();
+            }
         }
 
         // Redis

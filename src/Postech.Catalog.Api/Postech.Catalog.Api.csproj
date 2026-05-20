@@ -39,6 +39,7 @@
         <PackageReference Include="System.Text.Encodings.Web" Version="10.0.2" />
         
         <!-- AWS SDK packages -->
+        <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.2.27" />
         <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.2.27" />
         <PackageReference Include="AWSSDK.SQS" Version="4.0.2.25" />
         <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.3.33" />

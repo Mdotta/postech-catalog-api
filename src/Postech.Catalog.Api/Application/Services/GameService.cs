@@ -5,7 +5,6 @@ using Postech.Catalog.Api.Domain.Errors;
 using Postech.Catalog.Api.Infrastructure.Cache;
 using Postech.Catalog.Api.Infrastructure.Messaging;
 using Postech.Catalog.Api.Infrastructure.MongoDB.Documents;
-using Postech.Catalog.Api.Infrastructure.MongoDB.Repositories;
 using Postech.Catalog.Api.Infrastructure.Repositories;
 
 namespace Postech.Catalog.Api.Application.Services;
@@ -15,7 +14,7 @@ public class GameService: IGameService
     private const string AllGamesCacheKey = "catalog:games:all";
 
     private readonly IGameRepository _gameRepository;
-    private readonly IGameMongoRepository? _gameMongoRepository;
+    private readonly IGameDocumentRepository? _gameDocumentRepository;
     private readonly ICacheService? _cacheService;
     private readonly IEventPublisher _eventPublisher;
     private readonly ILogger<GameService> _logger;
@@ -23,13 +22,13 @@ public class GameService: IGameService
     public GameService(IGameRepository gameRepository,
         IEventPublisher eventPublisher,
         ILogger<GameService> logger,
-        IGameMongoRepository? gameMongoRepository = null,
+        IGameDocumentRepository? gameDocumentRepository = null,
         ICacheService? cacheService = null)
     {
         _gameRepository = gameRepository;
         _eventPublisher = eventPublisher;
         _logger = logger;
-        _gameMongoRepository = gameMongoRepository;
+        _gameDocumentRepository = gameDocumentRepository;
         _cacheService = cacheService;
     }
     
@@ -96,15 +95,15 @@ public class GameService: IGameService
         
         await _gameRepository.AddAsync(game, cancellationToken);
 
-        if (_gameMongoRepository is not null)
+        if (_gameDocumentRepository is not null)
         {
             try
             {
-                await _gameMongoRepository.UpsertAsync(ToDocument(game, request), cancellationToken);
+                await _gameDocumentRepository.UpsertAsync(ToDocument(game, request), cancellationToken);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "MongoDB sync failed for game {GameId}. Postgres record is intact.", game.Id);
+                _logger.LogWarning(ex, "Document sync failed for game {GameId}. Postgres record is intact.", game.Id);
             }
         }
 
@@ -159,16 +158,16 @@ public class GameService: IGameService
         {
             await _gameRepository.UpdateAsync(game, cancellationToken);
 
-            if (_gameMongoRepository is not null)
+            if (_gameDocumentRepository is not null)
             {
                 try
                 {
-                    var existing = await _gameMongoRepository.GetByIdAsync(game.Id, cancellationToken);
-                    await _gameMongoRepository.UpsertAsync(ToDocument(game, request, existing), cancellationToken);
+                    var existing = await _gameDocumentRepository.GetByIdAsync(game.Id, cancellationToken);
+                    await _gameDocumentRepository.UpsertAsync(ToDocument(game, request, existing), cancellationToken);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "MongoDB sync failed for game {GameId}. Postgres record is intact.", game.Id);
+                    _logger.LogWarning(ex, "Document sync failed for game {GameId}. Postgres record is intact.", game.Id);
                 }
             }
 
@@ -191,15 +190,15 @@ public class GameService: IGameService
         
         await _gameRepository.DeleteAsync(id, cancellationToken);
 
-        if (_gameMongoRepository is not null)
+        if (_gameDocumentRepository is not null)
         {
             try
             {
-                await _gameMongoRepository.DeleteAsync(id, cancellationToken);
+                await _gameDocumentRepository.DeleteAsync(id, cancellationToken);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "MongoDB sync failed on delete for game {GameId}. Postgres record is intact.", id);
+                _logger.LogWarning(ex, "Document sync failed on delete for game {GameId}. Postgres record is intact.", id);
             }
         }
 
