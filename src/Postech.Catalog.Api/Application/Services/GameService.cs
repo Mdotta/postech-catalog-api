@@ -4,6 +4,7 @@ using Postech.Catalog.Api.Domain.Entities;
 using Postech.Catalog.Api.Domain.Errors;
 using Postech.Catalog.Api.Infrastructure.Cache;
 using Postech.Catalog.Api.Infrastructure.Messaging;
+using Postech.Catalog.Api.Infrastructure.Metrics;
 using Postech.Catalog.Api.Infrastructure.MongoDB.Documents;
 using Postech.Catalog.Api.Infrastructure.Repositories;
 
@@ -40,9 +41,11 @@ public class GameService: IGameService
             if (cached is not null)
             {
                 _logger.LogInformation("Cache hit: {Key}", AllGamesCacheKey);
+                CatalogMetrics.CacheHits.Inc();
                 return cached;
             }
 
+            CatalogMetrics.CacheMisses.Inc();
             _logger.LogInformation("Cache miss: {Key}", AllGamesCacheKey);
         }
 
@@ -106,10 +109,12 @@ public class GameService: IGameService
             {
                 await _gameDocumentRepository.UpsertAsync(ToDocument(game, request), cancellationToken);
                 _logger.LogInformation("Document synced for game {GameId}", game.Id);
+                CatalogMetrics.DocumentSync.WithLabels("success").Inc();
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Document sync failed for game {GameId}. Postgres record is intact.", game.Id);
+                CatalogMetrics.DocumentSync.WithLabels("failure").Inc();
             }
         }
 
@@ -118,6 +123,8 @@ public class GameService: IGameService
             await _cacheService.RemoveAsync(AllGamesCacheKey, cancellationToken);
             _logger.LogInformation("Cache invalidated: {Key}", AllGamesCacheKey);
         }
+
+        CatalogMetrics.GamesCreated.Inc();
 
         return Result.Success;
     }
@@ -174,10 +181,12 @@ public class GameService: IGameService
                     var existing = await _gameDocumentRepository.GetByIdAsync(game.Id, cancellationToken);
                     await _gameDocumentRepository.UpsertAsync(ToDocument(game, request, existing), cancellationToken);
                     _logger.LogInformation("Document synced for game {GameId}", game.Id);
+                    CatalogMetrics.DocumentSync.WithLabels("success").Inc();
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Document sync failed for game {GameId}. Postgres record is intact.", game.Id);
+                    CatalogMetrics.DocumentSync.WithLabels("failure").Inc();
                 }
             }
 
@@ -186,6 +195,8 @@ public class GameService: IGameService
                 await _cacheService.RemoveAsync(AllGamesCacheKey, cancellationToken);
                 _logger.LogInformation("Cache invalidated: {Key}", AllGamesCacheKey);
             }
+
+            CatalogMetrics.GamesUpdated.Inc();
         }
 
         return Result.Success;
@@ -209,10 +220,12 @@ public class GameService: IGameService
             {
                 await _gameDocumentRepository.DeleteAsync(id, cancellationToken);
                 _logger.LogInformation("Document deleted for game {GameId}", id);
+                CatalogMetrics.DocumentSync.WithLabels("success").Inc();
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Document sync failed on delete for game {GameId}. Postgres record is intact.", id);
+                CatalogMetrics.DocumentSync.WithLabels("failure").Inc();
             }
         }
 
@@ -221,6 +234,8 @@ public class GameService: IGameService
             await _cacheService.RemoveAsync(AllGamesCacheKey, cancellationToken);
             _logger.LogInformation("Cache invalidated: {Key}", AllGamesCacheKey);
         }
+
+        CatalogMetrics.GamesDeleted.Inc();
 
         return Result.Success;
     }

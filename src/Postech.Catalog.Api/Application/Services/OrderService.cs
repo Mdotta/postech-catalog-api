@@ -4,6 +4,7 @@ using Postech.Catalog.Api.Domain.Entities;
 using Postech.Catalog.Api.Domain.Errors;
 using Postech.Catalog.Api.Infrastructure.Cache;
 using Postech.Catalog.Api.Infrastructure.Messaging;
+using Postech.Catalog.Api.Infrastructure.Metrics;
 using Postech.Catalog.Api.Infrastructure.Repositories;
 using Postech.Shared.Contracts.Events;
 
@@ -48,6 +49,8 @@ public class OrderService(
         };
 
         await publisher.PublishAsync(orderPlacedEvent);
+
+        CatalogMetrics.OrdersCreated.Inc();
 
         logger.LogInformation("Order {OrderId} placed for user {UserId}, game {GameId}", order.OrderId, userId, gameId);
         return order.OrderId;

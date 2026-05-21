@@ -2,6 +2,7 @@ using Amazon.SQS;
 using Amazon.SQS.Model;
 using System.Text.Json;
 using Postech.Catalog.Api.Infrastructure.Cache;
+using Postech.Catalog.Api.Infrastructure.Metrics;
 using Postech.Catalog.Api.Infrastructure.Repositories;
 using Postech.Catalog.Api.Domain.Enums;
 using Postech.Shared.Contracts.Events;
@@ -119,6 +120,7 @@ public class SqsOrderEventConsumer : BackgroundService
         if (orderEvent.IsSuccessful)
         {
             order.Status = OrderStatus.Completed;
+            CatalogMetrics.PaymentProcessed.WithLabels("completed").Inc();
             _logger.LogInformation("Order with id {OrderId} processed successfully", orderEvent.OrderId);
 
             if (cacheService is not null)
@@ -127,6 +129,7 @@ public class SqsOrderEventConsumer : BackgroundService
         else
         {
             order.Status = OrderStatus.Cancelled;
+            CatalogMetrics.PaymentProcessed.WithLabels("cancelled").Inc();
             _logger.LogInformation("Order with id {OrderId} failed to process. Reason: {Reason}",
                 orderEvent.OrderId, orderEvent.FailureReason);
         }
