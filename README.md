@@ -1,81 +1,128 @@
-# catalog-api — Microsserviço de Catálogo (FCG)
+# Catalog API — Microsservico de Catalogo (FCG)
 
-Microsserviço de **Catálogo** da FIAP Cloud Games (Tech Challenge). Responsável pelo CRUD de jogos, início do fluxo de compra e pela biblioteca do usuário após pagamento aprovado.
+Microsservico de **Catalogo** da FIAP Cloud Games (Tech Challenge). Responsavel pelo CRUD de jogos, inicio do fluxo de compra e biblioteca do usuario apos pagamento aprovado.
 
 ## Finalidade
 
-- **CRUD de jogos**: listar, criar, atualizar e remover jogos.
-- **Iniciar fluxo de compra**: receber requisição de compra e publicar `OrderPlacedEvent` na fila (RabbitMQ).
-- **Biblioteca do usuário**: consumir `PaymentProcessedEvent` e, se status `Approved`, adicionar o jogo à biblioteca; expor endpoint para consultar a biblioteca.
+- **CRUD de jogos** — listar, criar, atualizar e remover jogos.
+- **Dual-write document store** — dados expandidos (tags, screenshots, developer, publisher) salvos em MongoDB (local) ou DynamoDB (producao AWS).
+- **Cache com Redis** — lista de jogos cacheada por 5 minutos.
+- **Publica `OrderPlacedEvent`** via SNS ao criar pedido.
+- **Consome `PaymentProcessedEvent`** via SQS — aprova e adiciona o jogo a biblioteca do usuario.
 
-## Tecnologias
+## Tecnologias / Dependencias
 
-- .NET 9, Minimal API
-- PostgreSQL (EF Core)
-- MassTransit + RabbitMQ (mensageria)
-- Docker (multi-stage), Kubernetes (Deployment, Service, ConfigMap, Secret)
+| Recurso | Local (dev) | AWS (producao) |
+|---------|------------|----------------|
+| Runtime | .NET 10 / C# | .NET 10 / C# |
+| Banco primario | PostgreSQL 16 | RDS PostgreSQL 16 |
+| Document store | MongoDB 7 | DynamoDB |
+| Cache | Redis 7 | ElastiCache Redis 7 |
+| Mensageria (pub) | SNS (localstack opcional) | SNS |
+| Mensageria (sub) | SQS (localstack opcional) | SQS |
+| Logs | Console / arquivo | CloudWatch Logs |
+| Metricas | `/metrics` (Prometheus) | `/metrics` (Prometheus) |
+| API docs | Scalar | Scalar |
+| Auth | JWT (API Gateway pass-through) | Cognito JWT via API Gateway |
 
-## Estrutura
-
-- `Interfaces/` — contratos dos serviços
-- `Services/` — implementações (Game, Order, UserLibrary)
-- `Models/` — Game, UserLibraryItem
-- `Data/` — AppDbContext
-- `Events/` — OrderPlacedEvent, PaymentProcessedEvent
-- `Consumers/` — PaymentProcessedConsumer
-
-## Variáveis de ambiente
-
-| Variável | Descrição | Exemplo |
-|----------|-----------|---------|
-| `ConnectionStrings__Default` | Connection string PostgreSQL | `Host=localhost;Database=catalog;Username=postgres;Password=postgres` |
-| `RabbitMQ__Host` | Host do RabbitMQ | `localhost` ou `rabbitmq`|
-| `RabbitMQ__Username` | Usuário RabbitMQ | `guest` |
-| `RabbitMQ__Password` | Senha RabbitMQ | `guest` |
-| `ASPNETCORE_ENVIRONMENT` | Ambiente | `Development` / `Production` |
-
+Pacotes NuGet principais: `AWSSDK.DynamoDBv2`, `AWSSDK.SQS`, `AWSSDK.SimpleNotificationService`, `MongoDB.Driver`, `StackExchange.Redis`, `prometheus-net.AspNetCore`, `Serilog.AspNetCore`, `Scalar.AspNetCore`, `ErrorOr`.
 
 ## Como rodar localmente
 
-Não é necessário instalar PostgreSQL nem RabbitMQ na máquina. Use Docker para subir as dependências:
-
 ```bash
-# 1. Sobe PostgreSQL e RabbitMQ (portas 5432 e 5672)
-docker-compose up -d
+# 1. Subir dependencias (PostgreSQL, MongoDB, Redis, RabbitMQ) — use o compose do projeto de orquestracao:
+cd ../postech-orchestration/docker
+docker compose up -d postgresql mongodb redis
 
-# 2. Roda a API (connection string e RabbitMQ em appsettings.json já batem com o compose)
+# 2. Rodar a API
+cd ../../postech-catalog-api/src/Postech.Catalog.Api
 dotnet run
 ```
 
-A API sobe na porta definida no `Properties/launchSettings.json` (ex.: **http://localhost:5050**). Abra no navegador:
-- http://localhost:5050/health — health check
-- http://localhost:5050/swagger — documentação e testes (quando `ASPNETCORE_ENVIRONMENT=Development`)
+API disponivel em **http://localhost:5050**. Abra no navegador:
 
-O `appsettings.json` já está configurado para `localhost` (PostgreSQL em 5432, RabbitMQ em 5672). Se quiser outras credenciais, altere o `docker-compose.yml` e o `appsettings.json` em conjunto.
+- `http://localhost:5050/health` — health check
+- `http://localhost:5050/scalar/v1` — documentacao e testes
+- `http://localhost:5050/metrics` — metricas Prometheus
 
-## Imagem da API (Docker)
-
-Para containerizar a própria API (ex.: deploy):
+Alternativamente, suba apenas as dependencias locais com o `docker-compose.yml` no proprio repositorio:
 
 ```bash
-docker build -t catalog-api:latest .
-docker run -p 8080:8080 -e ConnectionStrings__Default="Host=host.docker.internal;..." -e RabbitMQ__Host=host.docker.internal catalog-api:latest
+docker compose up -d
 ```
+
+## Variaveis de ambiente
+
+| Variavel | Descricao | Default (local) |
+|----------|-----------|-----------------|
+| `ConnectionStrings__DefaultConnection` | PostgreSQL | `Host=localhost;Port=5432;Database=postech_catalog;Username=postgres;Password=postgres` |
+| `MongoDB__ConnectionString` | MongoDB (local) | `mongodb://postgres:postgres@localhost:27017` |
+| `MongoDB__DatabaseName` | MongoDB database | `postech_catalog` |
+| `DynamoDB__UseDynamoDB` | Usar DynamoDB em vez de MongoDB | `false` |
+| `DynamoDB__TableName` | Nome da tabela DynamoDB | `postech_catalog_games` |
+| `Redis__ConnectionString` | Redis | `localhost:6379` |
+| `AWS__Region` | Regiao AWS | `us-east-1` |
+| `AWS__ServiceURL` | LocalStack (opcional) | — |
+| `AWS__SnsTopicArn` | ARN do topico SNS para OrderPlacedEvent | — |
+| `AWS__SqsQueueUrl` | URL da fila SQS para PaymentProcessedEvent | — |
 
 ## Endpoints
 
-| Método | Rota | Descrição |
+| Metodo | Rota | Descricao |
 |--------|------|-----------|
-| GET | `/health` | Health check |
-| GET | `/games` | Lista jogos |
-| GET | `/games/{id}` | Jogo por ID |
-| POST | `/games` | Criar jogo |
-| PUT | `/games/{id}` | Atualizar jogo |
-| DELETE | `/games/{id}` | Remover jogo |
-| POST | `/orders` | Iniciar compra (body: `{ "userId": "guid", "gameId": "guid" }`) — publica OrderPlacedEvent |
-| GET | `/users/{userId}/library` | Biblioteca do usuário |
+| `GET` | `/health` | Health check |
+| `GET` | `/health/alive` | Liveness probe |
+| `GET` | `/metrics` | Metricas Prometheus |
+| `GET` | `/games` | Listar todos os jogos (cache Redis) |
+| `GET` | `/games/{id}` | Buscar jogo por ID |
+| `POST` | `/games` | Criar jogo |
+| `PUT` | `/games/{id}` | Atualizar jogo |
+| `DELETE` | `/games/{id}` | Remover jogo |
+| `POST` | `/games/create-order` | Criar pedido (publica `OrderPlacedEvent`) |
+| `GET` | `/games/library` | Biblioteca do usuario autenticado |
 
-## Eventos (mensageria)
+## Eventos
 
-- **Publica**: `OrderPlacedEvent` (UserId, GameId, Price, OrderId) — consumido pelo PaymentsAPI.
-- **Consome**: `PaymentProcessedEvent` (OrderId, UserId, GameId, Status) — se `Approved`, adiciona jogo à biblioteca.
+- **Publica:** `OrderPlacedEvent` (OrderId, UserId, GameId, Price) via SNS.
+- **Consome:** `PaymentProcessedEvent` (OrderId, UserId, GameId, Status) via SQS — se aprovado, adiciona a biblioteca.
+
+## Estrutura do projeto
+
+```
+src/Postech.Catalog.Api/
+  Application/            # DTOs, Services (GameService, OrderService), Validations
+    Consumers/            # SQS consumers (desacoplados do MassTransit)
+  Domain/                 # Entities (Game, Order), Enums, Errors
+  Endpoints/              # Minimal API endpoints
+  Extensions/             # DI registration, auth, pipeline
+  Infrastructure/
+    Cache/                # RedisCacheService
+    Data/                 # CatalogDbContext (EF Core / Postgres)
+    DynamoDB/             # DynamoDbSettings, GameDynamoRepository
+    Messaging/            # SnsEventPublisher, SqsOrderEventConsumer
+    MongoDB/              # MongoDbSettings, GameDocument, GameMongoRepository
+    Repositories/         # IGameRepository, IGameDocumentRepository, etc.
+  Middleware/             # CorrelationIdMiddleware
+  Migrations/             # EF Core migrations
+```
+
+## Como atualizar imagem no ECR
+
+```bash
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+ECR="${ACCOUNT}.dkr.ecr.us-east-1.amazonaws.com/tf-postech-postech-catalog-api"
+
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "${ACCOUNT}.dkr.ecr.us-east-1.amazonaws.com"
+
+docker build -t "${ECR}:latest" -f Dockerfile .
+docker push "${ECR}:latest"
+```
+
+Apos o push, a nova imagem sera usada na proxima inicializacao da instancia EC2 (via user_data). Para forcar a atualizacao imediata, acesse a EC2 e execute:
+
+```bash
+ssh -i postech-key.pem ec2-user@<catalog-eip>
+docker pull <ecr-url>:latest
+docker rm -f tf-postech-catalog-api
+# re-execute o comando docker run do user_data original
+```

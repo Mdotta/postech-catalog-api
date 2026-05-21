@@ -42,6 +42,8 @@ public class GameService: IGameService
                 _logger.LogInformation("Cache hit: {Key}", AllGamesCacheKey);
                 return cached;
             }
+
+            _logger.LogInformation("Cache miss: {Key}", AllGamesCacheKey);
         }
 
         var games = await _gameRepository.GetAllAsync(cancellationToken);
@@ -56,7 +58,10 @@ public class GameService: IGameService
         )).ToList();
 
         if (_cacheService is not null)
+        {
             await _cacheService.SetAsync(AllGamesCacheKey, response, TimeSpan.FromMinutes(5), cancellationToken);
+            _logger.LogInformation("Cache set: {Key}, TTL: 5min", AllGamesCacheKey);
+        }
 
         return response;
     }
@@ -100,6 +105,7 @@ public class GameService: IGameService
             try
             {
                 await _gameDocumentRepository.UpsertAsync(ToDocument(game, request), cancellationToken);
+                _logger.LogInformation("Document synced for game {GameId}", game.Id);
             }
             catch (Exception ex)
             {
@@ -108,7 +114,10 @@ public class GameService: IGameService
         }
 
         if (_cacheService is not null)
+        {
             await _cacheService.RemoveAsync(AllGamesCacheKey, cancellationToken);
+            _logger.LogInformation("Cache invalidated: {Key}", AllGamesCacheKey);
+        }
 
         return Result.Success;
     }
@@ -164,6 +173,7 @@ public class GameService: IGameService
                 {
                     var existing = await _gameDocumentRepository.GetByIdAsync(game.Id, cancellationToken);
                     await _gameDocumentRepository.UpsertAsync(ToDocument(game, request, existing), cancellationToken);
+                    _logger.LogInformation("Document synced for game {GameId}", game.Id);
                 }
                 catch (Exception ex)
                 {
@@ -172,7 +182,10 @@ public class GameService: IGameService
             }
 
             if (_cacheService is not null)
+            {
                 await _cacheService.RemoveAsync(AllGamesCacheKey, cancellationToken);
+                _logger.LogInformation("Cache invalidated: {Key}", AllGamesCacheKey);
+            }
         }
 
         return Result.Success;
@@ -195,6 +208,7 @@ public class GameService: IGameService
             try
             {
                 await _gameDocumentRepository.DeleteAsync(id, cancellationToken);
+                _logger.LogInformation("Document deleted for game {GameId}", id);
             }
             catch (Exception ex)
             {
@@ -203,7 +217,10 @@ public class GameService: IGameService
         }
 
         if (_cacheService is not null)
+        {
             await _cacheService.RemoveAsync(AllGamesCacheKey, cancellationToken);
+            _logger.LogInformation("Cache invalidated: {Key}", AllGamesCacheKey);
+        }
 
         return Result.Success;
     }
