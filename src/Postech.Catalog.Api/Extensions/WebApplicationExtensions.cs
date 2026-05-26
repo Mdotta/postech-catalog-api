@@ -24,7 +24,6 @@ public static class WebApplicationExtensions
 
         app.UseAuthentication();
         app.UseAuthorization();
-        app.MapHealthEndpoints();
 
         app.MapMetrics("/metrics").AllowAnonymous();
         

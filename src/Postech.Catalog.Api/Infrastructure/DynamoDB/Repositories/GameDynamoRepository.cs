@@ -72,10 +72,14 @@ public class GameDynamoRepository : IGameDocumentRepository
             ["CreatedAt"] = new AttributeValue { S = doc.CreatedAt.ToString("O") },
             ["UpdatedAt"] = new AttributeValue { S = doc.UpdatedAt.ToString("O") },
             ["Developer"] = new AttributeValue { S = doc.Developer },
-            ["Publisher"] = new AttributeValue { S = doc.Publisher },
-            ["Tags"] = new AttributeValue { SS = doc.Tags },
-            ["Screenshots"] = new AttributeValue { SS = doc.Screenshots }
+            ["Publisher"] = new AttributeValue { S = doc.Publisher }
         };
+
+        if (doc.Tags.Count > 0)
+            item["Tags"] = new AttributeValue { SS = doc.Tags };
+
+        if (doc.Screenshots.Count > 0)
+            item["Screenshots"] = new AttributeValue { SS = doc.Screenshots };
 
         return item;
     }

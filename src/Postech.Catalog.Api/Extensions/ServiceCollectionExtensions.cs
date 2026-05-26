@@ -48,6 +48,22 @@ public static class ServiceCollectionExtensions
         // Repositories
         services.AddScoped<IGameRepository, GameRepository>();
 
+        // AWS default options (must be before any AddAWSService call)
+        var serviceUrl = configuration["AWS:ServiceURL"];
+        if (!string.IsNullOrWhiteSpace(serviceUrl))
+        {
+            services.AddSingleton<IAmazonSimpleNotificationService>(_ =>
+                new AmazonSimpleNotificationServiceClient(
+                    new AmazonSimpleNotificationServiceConfig { ServiceURL = serviceUrl }));
+            services.AddSingleton<IAmazonSQS>(_ =>
+                new AmazonSQSClient(
+                    new AmazonSQSConfig { ServiceURL = serviceUrl }));
+        }
+        else
+        {
+            services.AddDefaultAWSOptions(configuration.GetAWSOptions());
+        }
+
         // Document database (MongoDB or DynamoDB)
         var dynamoSettings = configuration.GetSection("DynamoDB").Get<DynamoDbSettings>();
         if (dynamoSettings is not null && dynamoSettings.UseDynamoDB && !string.IsNullOrWhiteSpace(dynamoSettings.TableName))
@@ -80,21 +96,9 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ICacheService, RedisCacheService>();
         }
 
-        // AWS Services
-        var serviceUrl = configuration["AWS:ServiceURL"];
-
-        if (!string.IsNullOrWhiteSpace(serviceUrl))
+        // AWS Services (SNS/SQS — options already configured above)
+        if (string.IsNullOrWhiteSpace(serviceUrl))
         {
-            services.AddSingleton<IAmazonSimpleNotificationService>(_ =>
-                new AmazonSimpleNotificationServiceClient(
-                    new AmazonSimpleNotificationServiceConfig { ServiceURL = serviceUrl }));
-            services.AddSingleton<IAmazonSQS>(_ =>
-                new AmazonSQSClient(
-                    new AmazonSQSConfig { ServiceURL = serviceUrl }));
-        }
-        else
-        {
-            services.AddDefaultAWSOptions(configuration.GetAWSOptions());
             services.AddAWSService<IAmazonSimpleNotificationService>();
             services.AddAWSService<IAmazonSQS>();
         }

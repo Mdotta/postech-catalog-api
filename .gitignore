@@ -47,6 +47,9 @@ docs/
 .DS_Store
 Thumbs.db
 
+# Private keys
+*.pem
+
 # Logs and temp
 *.log
 *.tmp
