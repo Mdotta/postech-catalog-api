@@ -43,6 +43,13 @@ jobs:
           AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
         run: |
+          echo "=== Diagnosing AWS credentials ==="
+          echo "Access key length: $(printf '%s' "$AWS_ACCESS_KEY_ID" | wc -c)"
+          echo "Secret key length: $(printf '%s' "$AWS_SECRET_ACCESS_KEY" | wc -c)"
+          echo "Session token length: $(printf '%s' "$AWS_SESSION_TOKEN" | wc -c)"
+          echo "Calling STS GetCallerIdentity..."
+          aws sts get-caller-identity 2>&1 || true
+          echo "=== Attempting ECR login ==="
           aws ecr get-login-password | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
 
       - name: Build and push Docker image
