@@ -3,6 +3,7 @@ name: CI/CD
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 env:
   IMAGE_TAG: ${{ github.sha }}
@@ -73,17 +74,6 @@ jobs:
           AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
         run: |
           aws eks update-kubeconfig --region "$AWS_DEFAULT_REGION" --name tf-postech-eks
-
-          AWS_CREDS=$(kubectl create secret generic tmp \
-            --from-literal=AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
-            --from-literal=AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
-            --from-literal=AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN" \
-            --dry-run=client -o jsonpath='{.data}')
-
-          kubectl patch secret catalog-api-secret --type merge -p "{\"data\":$AWS_CREDS}" 2>/dev/null || true
-          kubectl patch secret users-api-secret --type merge -p "{\"data\":$AWS_CREDS}" 2>/dev/null || true
-          kubectl patch secret payments-api-secret --type merge -p "{\"data\":$AWS_CREDS}" 2>/dev/null || true
-
           kubectl apply -f k8s/
           kubectl set image deployment/catalog-api \
             catalog-api=${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO }}:${{ env.IMAGE_TAG }}

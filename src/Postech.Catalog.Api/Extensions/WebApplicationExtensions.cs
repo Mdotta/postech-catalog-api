@@ -33,6 +33,7 @@ public static class WebApplicationExtensions
         app.MapScalarApiReference();
 
         // Map Endpoints
+        app.MapHealthEndpoints();
         app.MapCatalogEndpoints();
 
         return app;
