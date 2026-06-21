@@ -6,6 +6,7 @@ using Postech.Catalog.Api.Infrastructure.Cache;
 using Postech.Catalog.Api.Infrastructure.Messaging;
 using Postech.Catalog.Api.Infrastructure.Metrics;
 using Postech.Catalog.Api.Infrastructure.MongoDB.Documents;
+using Postech.Catalog.Api.Infrastructure.OpenSearch;
 using Postech.Catalog.Api.Infrastructure.Repositories;
 
 namespace Postech.Catalog.Api.Application.Services;
@@ -16,6 +17,7 @@ public class GameService: IGameService
 
     private readonly IGameRepository _gameRepository;
     private readonly IGameDocumentRepository? _gameDocumentRepository;
+    private readonly IGameSearchRepository? _gameSearchRepository;
     private readonly ICacheService? _cacheService;
     private readonly IEventPublisher _eventPublisher;
     private readonly ILogger<GameService> _logger;
@@ -24,12 +26,14 @@ public class GameService: IGameService
         IEventPublisher eventPublisher,
         ILogger<GameService> logger,
         IGameDocumentRepository? gameDocumentRepository = null,
+        IGameSearchRepository? gameSearchRepository = null,
         ICacheService? cacheService = null)
     {
         _gameRepository = gameRepository;
         _eventPublisher = eventPublisher;
         _logger = logger;
         _gameDocumentRepository = gameDocumentRepository;
+        _gameSearchRepository = gameSearchRepository;
         _cacheService = cacheService;
     }
     
@@ -118,6 +122,21 @@ public class GameService: IGameService
             }
         }
 
+        if (_gameSearchRepository is not null)
+        {
+            try
+            {
+                await _gameSearchRepository.IndexAsync(ToSearchDocument(game, request), cancellationToken);
+                _logger.LogInformation("Search index synced for game {GameId}", game.Id);
+                CatalogMetrics.SearchIndex.WithLabels("success").Inc();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Search index sync failed for game {GameId}. Postgres record is intact.", game.Id);
+                CatalogMetrics.SearchIndex.WithLabels("failure").Inc();
+            }
+        }
+
         if (_cacheService is not null)
         {
             await _cacheService.RemoveAsync(AllGamesCacheKey, cancellationToken);
@@ -190,6 +209,21 @@ public class GameService: IGameService
                 }
             }
 
+            if (_gameSearchRepository is not null)
+            {
+                try
+                {
+                    await _gameSearchRepository.IndexAsync(ToSearchDocument(game, request), cancellationToken);
+                    _logger.LogInformation("Search index synced for game {GameId}", game.Id);
+                    CatalogMetrics.SearchIndex.WithLabels("success").Inc();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Search index sync failed for game {GameId}. Postgres record is intact.", game.Id);
+                    CatalogMetrics.SearchIndex.WithLabels("failure").Inc();
+                }
+            }
+
             if (_cacheService is not null)
             {
                 await _cacheService.RemoveAsync(AllGamesCacheKey, cancellationToken);
@@ -226,6 +260,21 @@ public class GameService: IGameService
             {
                 _logger.LogWarning(ex, "Document sync failed on delete for game {GameId}. Postgres record is intact.", id);
                 CatalogMetrics.DocumentSync.WithLabels("failure").Inc();
+            }
+        }
+
+        if (_gameSearchRepository is not null)
+        {
+            try
+            {
+                await _gameSearchRepository.DeleteAsync(id, cancellationToken);
+                _logger.LogInformation("Search index deleted for game {GameId}", id);
+                CatalogMetrics.SearchIndex.WithLabels("success").Inc();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Search index delete failed for game {GameId}. Postgres record is intact.", id);
+                CatalogMetrics.SearchIndex.WithLabels("failure").Inc();
             }
         }
 
@@ -271,5 +320,31 @@ public class GameService: IGameService
         Screenshots = request.Screenshots ?? existing?.Screenshots ?? [],
         Developer = request.Developer ?? existing?.Developer ?? string.Empty,
         Publisher = request.Publisher ?? existing?.Publisher ?? string.Empty
+    };
+
+    private static GameSearchDocument ToSearchDocument(Game game, CreateGameRequest request) => new()
+    {
+        Id = game.Id,
+        Name = game.Name,
+        Description = game.Description,
+        Genre = game.Genre,
+        Price = game.Price,
+        ReleaseDate = game.ReleaseDate,
+        Tags = request.Tags ?? [],
+        Developer = request.Developer ?? string.Empty,
+        Publisher = request.Publisher ?? string.Empty
+    };
+
+    private static GameSearchDocument ToSearchDocument(Game game, UpdateGameRequest request) => new()
+    {
+        Id = game.Id,
+        Name = game.Name,
+        Description = game.Description,
+        Genre = game.Genre,
+        Price = game.Price,
+        ReleaseDate = game.ReleaseDate,
+        Tags = request.Tags ?? [],
+        Developer = request.Developer ?? string.Empty,
+        Publisher = request.Publisher ?? string.Empty
     };
 }

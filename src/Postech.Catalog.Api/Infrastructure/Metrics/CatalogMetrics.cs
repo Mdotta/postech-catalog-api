@@ -29,4 +29,8 @@ public static class CatalogMetrics
     public static readonly Counter PaymentProcessed = Prometheus.Metrics.CreateCounter(
         "payment_processed_total", "Payment events processed by SQS consumer",
         new CounterConfiguration { LabelNames = ["status"] });
+
+    public static readonly Counter SearchIndex = Prometheus.Metrics.CreateCounter(
+        "search_index_total", "OpenSearch index sync results",
+        new CounterConfiguration { LabelNames = ["status"] });
 }

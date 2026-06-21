@@ -18,6 +18,7 @@ using Postech.Catalog.Api.Infrastructure.DynamoDB.Repositories;
 using Postech.Catalog.Api.Infrastructure.Messaging;
 using Postech.Catalog.Api.Infrastructure.MongoDB;
 using Postech.Catalog.Api.Infrastructure.MongoDB.Repositories;
+using Postech.Catalog.Api.Infrastructure.OpenSearch;
 using Postech.Catalog.Api.Infrastructure.Repositories;
 using StackExchange.Redis;
 
@@ -104,6 +105,7 @@ public static class ServiceCollectionExtensions
             var connectionSettings = new ConnectionSettings(new Uri(openSearchEndpoint))
                 .DefaultIndex("games");
             services.AddSingleton<IOpenSearchClient>(new OpenSearchClient(connectionSettings));
+            services.AddScoped<IGameSearchRepository, GameSearchRepository>();
         }
 
         // AWS Services (SNS/SQS — options already configured above)
