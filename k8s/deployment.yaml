@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: catalog-api
-          image: 565655678867.dkr.ecr.us-east-1.amazonaws.com/tf-postech-postech-catalog-api:latest
+          image: 565655678867.dkr.ecr.us-east-1.amazonaws.com/tf-postech-catalog-api:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80
