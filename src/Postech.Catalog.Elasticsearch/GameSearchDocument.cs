@@ -1,4 +1,4 @@
-namespace Postech.Catalog.Api.Infrastructure.OpenSearch;
+namespace Postech.Catalog.Elasticsearch;
 
 public class GameSearchDocument
 {

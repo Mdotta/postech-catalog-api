@@ -1,14 +1,15 @@
-using OpenSearch.Client;
+using Elastic.Clients.Elasticsearch;
+using Elastic.Clients.Elasticsearch.QueryDsl;
 
-namespace Postech.Catalog.Api.Infrastructure.OpenSearch;
+namespace Postech.Catalog.Elasticsearch;
 
 public class GameSearchRepository : IGameSearchRepository
 {
     private const string IndexName = "games";
 
-    private readonly IOpenSearchClient _client;
+    private readonly ElasticsearchClient _client;
 
-    public GameSearchRepository(IOpenSearchClient client)
+    public GameSearchRepository(ElasticsearchClient client)
     {
         _client = client;
     }
@@ -29,24 +30,18 @@ public class GameSearchRepository : IGameSearchRepository
         var response = await _client.SearchAsync<GameSearchDocument>(s => s
             .Index(IndexName)
             .Query(q => q
-                .MultiMatch(m => m
-                    .Fields(f => f
-                        .Field(ff => ff.Name, 3.0)
-                        .Field(ff => ff.Description)
-                        .Field(ff => ff.Genre, 2.0)
-                        .Field(ff => ff.Tags)
-                        .Field(ff => ff.Developer)
-                        .Field(ff => ff.Publisher))
+                .MultiMatch(mm => mm
                     .Query(query)
-                    .Fuzziness(Fuzziness.EditDistance(fuzziness))
+                    .Fields(new[] { "name^3", "description", "genre^2", "tags", "developer", "publisher" })
                     .Type(TextQueryType.BestFields)
+                    .Fuzziness(new Fuzziness(fuzziness))
                 )
             ), cancellationToken);
 
         return response.Hits
             .Select(hit => new GameSearchResult
             {
-                Document = hit.Source,
+                Document = hit.Source!,
                 Score = hit.Score ?? 0
             })
             .ToList();

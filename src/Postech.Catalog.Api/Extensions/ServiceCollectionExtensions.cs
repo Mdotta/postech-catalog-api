@@ -7,7 +7,6 @@ using Amazon.SQS;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using MongoDB.Driver;
-using OpenSearch.Client;
 using Postech.Catalog.Api.Application.Services;
 using Postech.Catalog.Api.Application.Utils;
 using Postech.Catalog.Api.Domain.Enums;
@@ -18,8 +17,8 @@ using Postech.Catalog.Api.Infrastructure.DynamoDB.Repositories;
 using Postech.Catalog.Api.Infrastructure.Messaging;
 using Postech.Catalog.Api.Infrastructure.MongoDB;
 using Postech.Catalog.Api.Infrastructure.MongoDB.Repositories;
-using Postech.Catalog.Api.Infrastructure.OpenSearch;
 using Postech.Catalog.Api.Infrastructure.Repositories;
+using Postech.Catalog.Elasticsearch;
 using StackExchange.Redis;
 
 namespace Postech.Catalog.Api.Extensions;
@@ -98,15 +97,8 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ICacheService, RedisCacheService>();
         }
 
-        // OpenSearch
-        var openSearchEndpoint = configuration["OpenSearch:Endpoint"];
-        if (!string.IsNullOrWhiteSpace(openSearchEndpoint))
-        {
-            var connectionSettings = new ConnectionSettings(new Uri(openSearchEndpoint))
-                .DefaultIndex("games");
-            services.AddSingleton<IOpenSearchClient>(new OpenSearchClient(connectionSettings));
-            services.AddScoped<IGameSearchRepository, GameSearchRepository>();
-        }
+        // Elasticsearch
+        services.AddElasticsearch(configuration);
 
         // AWS Services (SNS/SQS — options already configured above)
         if (string.IsNullOrWhiteSpace(serviceUrl))

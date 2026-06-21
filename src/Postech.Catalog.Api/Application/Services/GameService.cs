@@ -6,8 +6,8 @@ using Postech.Catalog.Api.Infrastructure.Cache;
 using Postech.Catalog.Api.Infrastructure.Messaging;
 using Postech.Catalog.Api.Infrastructure.Metrics;
 using Postech.Catalog.Api.Infrastructure.MongoDB.Documents;
-using Postech.Catalog.Api.Infrastructure.OpenSearch;
 using Postech.Catalog.Api.Infrastructure.Repositories;
+using Postech.Catalog.Elasticsearch;
 
 namespace Postech.Catalog.Api.Application.Services;
 
