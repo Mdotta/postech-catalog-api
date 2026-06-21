@@ -7,6 +7,7 @@ using Amazon.SQS;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using MongoDB.Driver;
+using OpenSearch.Client;
 using Postech.Catalog.Api.Application.Services;
 using Postech.Catalog.Api.Application.Utils;
 using Postech.Catalog.Api.Domain.Enums;
@@ -94,6 +95,15 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IConnectionMultiplexer>(_ =>
                 ConnectionMultiplexer.Connect(redisConnectionString));
             services.AddScoped<ICacheService, RedisCacheService>();
+        }
+
+        // OpenSearch
+        var openSearchEndpoint = configuration["OpenSearch:Endpoint"];
+        if (!string.IsNullOrWhiteSpace(openSearchEndpoint))
+        {
+            var connectionSettings = new ConnectionSettings(new Uri(openSearchEndpoint))
+                .DefaultIndex("games");
+            services.AddSingleton<IOpenSearchClient>(new OpenSearchClient(connectionSettings));
         }
 
         // AWS Services (SNS/SQS — options already configured above)

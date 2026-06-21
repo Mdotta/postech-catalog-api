@@ -43,6 +43,7 @@
         <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.2.27" />
         <PackageReference Include="AWSSDK.SQS" Version="4.0.2.25" />
         <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.3.33" />
+        <PackageReference Include="OpenSearch.Client" Version="1.8.0" />
     </ItemGroup>
 
     <ItemGroup>
