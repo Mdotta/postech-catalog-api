@@ -21,6 +21,12 @@ public static class CatalogEndpoints
             .WithSummary("Get all games")
             .Produces<List<GameResponse>>(StatusCodes.Status200OK);
 
+        group.MapGet("/search", async ([FromQuery] string q, [FromQuery] int fuzziness, [FromServices] IGameService gameService, CancellationToken ct) =>
+                await SearchGamesAsync(q, fuzziness, gameService, ct))
+            .WithName("SearchGames")
+            .WithSummary("Full-text search games with fuzzy matching")
+            .Produces<List<SearchGameItem>>(StatusCodes.Status200OK);
+
         group.MapPost("", async ([FromBody] CreateGameRequest request, [FromServices] IGameService gameService, CancellationToken ct) =>
                 await CreateGameAsync(request, gameService, ct))
             .WithName("CreateGame")
@@ -73,6 +79,12 @@ public static class CatalogEndpoints
     private static async Task<IResult> ListGamesAsync(IGameService gameService, CancellationToken ct)
     {
         var result = await gameService.GetAllGamesAsync(ct);
+        return Results.Ok(result.Value);
+    }
+
+    private static async Task<IResult> SearchGamesAsync(string q, int fuzziness, IGameService gameService, CancellationToken ct)
+    {
+        var result = await gameService.SearchGamesAsync(new SearchGamesRequest(q, fuzziness), ct);
         return Results.Ok(result.Value);
     }
 

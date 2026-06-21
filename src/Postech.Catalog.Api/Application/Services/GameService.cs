@@ -289,6 +289,27 @@ public class GameService: IGameService
         return Result.Success;
     }
 
+    public async Task<ErrorOr<List<SearchGameItem>>> SearchGamesAsync(SearchGamesRequest request, CancellationToken cancellationToken = default)
+    {
+        if (_gameSearchRepository is null)
+            return new List<SearchGameItem>();
+
+        var results = await _gameSearchRepository.SearchAsync(request.Q, request.Fuzziness, cancellationToken);
+
+        var items = results.Select(r => new SearchGameItem(
+            new GameResponse(
+                r.Document.Id,
+                r.Document.Name,
+                r.Document.Description,
+                r.Document.Price,
+                r.Document.Genre,
+                r.Document.ReleaseDate),
+            r.Score
+        )).ToList();
+
+        return items;
+    }
+
     private static GameDocument ToDocument(Game game, CreateGameRequest request) => new()
     {
         Id = game.Id,

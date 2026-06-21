@@ -10,4 +10,5 @@ public interface IGameService
     Task<ErrorOr<Success>> CreateGameAsync(CreateGameRequest request, CancellationToken cancellationToken = default);
     Task<ErrorOr<Success>> UpdateGameAsync(UpdateGameRequest request, CancellationToken cancellationToken = default);
     Task<ErrorOr<Success>> DeleteGameAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ErrorOr<List<SearchGameItem>>> SearchGamesAsync(SearchGamesRequest request, CancellationToken cancellationToken = default);
 }
