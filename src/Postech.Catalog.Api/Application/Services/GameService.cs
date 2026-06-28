@@ -54,7 +54,9 @@ public class GameService: IGameService
         }
 
         var games = await _gameRepository.GetAllAsync(cancellationToken);
-        _logger.LogInformation("live deploy test");
+        
+        _logger.LogInformation("video: live deploy");
+
         var response = games.Select(game => new GameResponse(
             game.Id,
             game.Name,
